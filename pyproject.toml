@@ -3,7 +3,7 @@ name = "tom-alertstreams"
 description = "Reusable TOMToolkit app for listening to kafka streams."
 authors = [
     {name = "TOM Toolkit Project", email = "tomtoolkit-maintainers@lco.global"},
-    {name = "Lindy Lindstrom", email = "llindstrom@lco.global"}
+    {name = "William Lindstrom", email = "llindstrom@lco.global"}
 ]
 maintainers = [
     {name = "Joey Chatelain", email = "jchate6@gmail.com"},
@@ -24,7 +24,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
