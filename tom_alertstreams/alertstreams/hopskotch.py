@@ -118,20 +118,20 @@ class HopskotchAlertStream(AlertStream):
                         if metadata.topic in self.alert_handler:
                             # TODO: should probably use *args, **kwargs to pass unknow number of arguments
                             self.alert_handler[metadata.topic](alert, metadata)
-                        elif '*' in self.alert_handler:
+                        else:
                             # First check all wildcard topics to see if they will match this topic
-                            matched_handler = False
                             for topic in self.alert_handler.keys():
                                 if topic != '*' and '*' in topic and re.match(topic, metadata.topic):
                                     self.alert_handler[topic](alert, metadata)
                                     matched_handler = True
                                     break
-                            # If nothing matched, fall back to default public topic handler
                             if not matched_handler:
-                                self.alert_handler['*'](alert, metadata)
-                        else:
-                            logger.error(f'alert from topic {metadata.topic} received but no handler defined.')
-                            # TODO: should define a default handler for all unhandeled topics
+                                # If nothing matched and we have a catch all handler, fall back to default public topic handler
+                                if '*' in self.alert_handler:
+                                    self.alert_handler['*'](alert, metadata)
+                                else:
+                                    # TODO: should define a default handler for all unhandeled topics
+                                    logger.error(f'alert from topic {metadata.topic} received but no handler defined.')
                         if (tz.now() - last_check_time).total_seconds() > self.PUBLIC_TOPIC_CHECK_INTERVAL:
                             last_check_time = tz.now()
                             public_topics = self.get_all_public_topics()
