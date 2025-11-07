@@ -74,11 +74,19 @@ class HopskotchAlertStream(AlertStream):
             base_stream_url += '/'
 
         # append comma-separated topics to base URL
-        specified_topics = list(self.topic_handlers.keys())
+        specified_topics = set(self.topic_handlers.keys())
         if '*' in specified_topics:
             # Add all public topics if a asterisk is set in the topic_handlers
-            specified_topics = list(set(specified_topics + self.public_topics))
-        # Also remove topics with wildcards in them
+            specified_topics = specified_topics.union(set(self.public_topics))
+        else:
+            # Look over all topics, and if there are any with a partial wildcard in them, 
+            # Add all the public topics that match that partial wildcard
+            for topic in specified_topics:
+                if '*' in topic:
+                    specified_topics = specified_topics.union(
+                        set([t for t in self.public_topics if re.match(topic, t)]))
+                    
+        # Also remove topics with wildcards in them, and convert specified topics set to list
         specified_topics = [topic for topic in specified_topics if not '*' in topic]
 
         topics = ','.join(specified_topics)  # 'topic1,topic2,topic3'
