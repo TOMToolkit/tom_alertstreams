@@ -120,6 +120,7 @@ class HopskotchAlertStream(AlertStream):
                             self.alert_handler[metadata.topic](alert, metadata)
                         else:
                             # First check all wildcard topics to see if they will match this topic
+                            matched_handler = False
                             for topic in self.alert_handler.keys():
                                 if topic != '*' and '*' in topic and re.match(topic, metadata.topic):
                                     self.alert_handler[topic](alert, metadata)
