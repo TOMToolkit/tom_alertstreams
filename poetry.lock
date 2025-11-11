@@ -891,5 +891,5 @@ test = ["pytest", "pytest-cov"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.9.0,<3.13"
-content-hash = "ef4cb53e76a34bc6b83b5aaeb5342cfb7b455905a2a969d20c35e656df0945a6"
+python-versions = ">=3.9.0,<=3.13"
+content-hash = "e0f940339ee3a0717ba8dd685d3c521d0369b945ab3469e4f028f8523fac70a8"
