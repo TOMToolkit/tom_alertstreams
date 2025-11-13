@@ -21,15 +21,20 @@ class HopskotchAlertStream(AlertStream):
     """
     """
     required_keys = ['URL', 'GROUP_ID', 'USERNAME', 'PASSWORD', 'TOPIC_HANDLERS']
-    allowed_keys = ['URL', 'GROUP_ID', 'USERNAME', 'PASSWORD', 'TOPIC_HANDLERS']
+    allowed_keys = ['URL', 'GROUP_ID', 'USERNAME', 'PASSWORD', 'TOPIC_HANDLERS', 'START_POSITION']
     PUBLIC_TOPIC_CHECK_INTERVAL = 300  # Seconds between checking for new public topics
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # the following methods may fail if improperly configured.
         # So, do them now to catch any errors, before listen() is spawned in it's own Process.
+        logger.debug(f'HopskotchAlertStream.__init__() kwargs: {kwargs}')
         self.public_topics = self.get_all_public_topics()
         self.stream_url = self.get_stream_url()
-        self.stream = self.get_stream()
+
+        start_position = StartPosition.LATEST
+        if hasattr(self, 'start_position') and self.start_position == 'EARLIEST':
+            start_position = StartPosition.EARLIEST
+        self.stream = self.get_stream(start_position)
 
     def get_all_public_topics(self) -> list[str]:
         """Returns the up-to-date list of Topic names to consume.
@@ -74,11 +79,19 @@ class HopskotchAlertStream(AlertStream):
             base_stream_url += '/'
 
         # append comma-separated topics to base URL
-        specified_topics = list(self.topic_handlers.keys())
+        specified_topics = set(self.topic_handlers.keys())
         if '*' in specified_topics:
             # Add all public topics if a asterisk is set in the topic_handlers
-            specified_topics = list(set(specified_topics + self.public_topics))
-        # Also remove topics with wildcards in them
+            specified_topics = specified_topics.union(set(self.public_topics))
+        else:
+            # Look over all topics, and if there are any with a partial wildcard in them, 
+            # Add all the public topics that match that partial wildcard
+            for topic in specified_topics:
+                if '*' in topic:
+                    specified_topics = specified_topics.union(
+                        set([t for t in self.public_topics if re.match(topic, t)]))
+                    
+        # Also remove topics with wildcards in them, and convert specified topics set to list
         specified_topics = [topic for topic in specified_topics if not '*' in topic]
 
         topics = ','.join(specified_topics)  # 'topic1,topic2,topic3'
@@ -110,7 +123,7 @@ class HopskotchAlertStream(AlertStream):
                         if metadata.topic in self.alert_handler:
                             # TODO: should probably use *args, **kwargs to pass unknow number of arguments
                             self.alert_handler[metadata.topic](alert, metadata)
-                        elif '*' in self.alert_handler:
+                        else:
                             # First check all wildcard topics to see if they will match this topic
                             matched_handler = False
                             for topic in self.alert_handler.keys():
@@ -118,12 +131,13 @@ class HopskotchAlertStream(AlertStream):
                                     self.alert_handler[topic](alert, metadata)
                                     matched_handler = True
                                     break
-                            # If nothing matched, fall back to default public topic handler
                             if not matched_handler:
-                                self.alert_handler['*'](alert, metadata)
-                        else:
-                            logger.error(f'alert from topic {metadata.topic} received but no handler defined.')
-                            # TODO: should define a default handler for all unhandeled topics
+                                # If nothing matched and we have a catch all handler, fall back to default public topic handler
+                                if '*' in self.alert_handler:
+                                    self.alert_handler['*'](alert, metadata)
+                                else:
+                                    # TODO: should define a default handler for all unhandeled topics
+                                    logger.error(f'alert from topic {metadata.topic} received but no handler defined.')
                         if (tz.now() - last_check_time).total_seconds() > self.PUBLIC_TOPIC_CHECK_INTERVAL:
                             last_check_time = tz.now()
                             public_topics = self.get_all_public_topics()

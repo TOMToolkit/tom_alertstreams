@@ -28,16 +28,16 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Topic :: Scientific/Engineering :: Physics"
 ]
 dynamic = ["version"]
-requires-python = ">=3.9.0,<3.13"
+requires-python = ">=3.9.0,<=3.13"
 packages = [
     { include = "tom_alertstreams" }
 ]
 dependencies = [
-    "tomtoolkit >=2.22,<3.0",
     "psycopg2-binary >=2.9,<3.0",
     "gcn-kafka >=0.3,<1.0",
     "hop-client >=0.10,<1.0"
@@ -47,6 +47,7 @@ dependencies = [
 
 [tool.poetry]
 version = "0.0.0" # version supplied by poetry-dynamic-versioning
+
 [tool.poetry.group.test.dependencies]
 coverage = "^7.6.1"
 factory_boy = "^3.1.0"
