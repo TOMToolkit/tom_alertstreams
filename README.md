@@ -53,6 +53,7 @@ ALERT_STREAMS = [
             'GROUP_ID': os.getenv('SCIMMA_AUTH_USERNAME', "") + '-' + 'uniqueidforyourapp12345',
             'USERNAME': os.getenv('SCIMMA_AUTH_USERNAME', None),
             'PASSWORD': os.getenv('SCIMMA_AUTH_PASSWORD', None),
+            'START_POSITION': 'LATEST',  # Optional: EARLIEST or LATEST (defaults to LATEST)
             'TOPIC_HANDLERS': {
                 'sys.heartbeat': 'tom_alertstreams.alertstreams.hopskotch.heartbeat_handler',
                 'tomtoolkit.test': 'tom_alertstreams.alertstreams.hopskotch.alert_logger',

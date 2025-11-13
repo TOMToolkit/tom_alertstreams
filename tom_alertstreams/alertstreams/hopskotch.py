@@ -21,15 +21,20 @@ class HopskotchAlertStream(AlertStream):
     """
     """
     required_keys = ['URL', 'GROUP_ID', 'USERNAME', 'PASSWORD', 'TOPIC_HANDLERS']
-    allowed_keys = ['URL', 'GROUP_ID', 'USERNAME', 'PASSWORD', 'TOPIC_HANDLERS']
+    allowed_keys = ['URL', 'GROUP_ID', 'USERNAME', 'PASSWORD', 'TOPIC_HANDLERS', 'START_POSITION']
     PUBLIC_TOPIC_CHECK_INTERVAL = 300  # Seconds between checking for new public topics
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         # the following methods may fail if improperly configured.
         # So, do them now to catch any errors, before listen() is spawned in it's own Process.
+        logger.debug(f'HopskotchAlertStream.__init__() kwargs: {kwargs}')
         self.public_topics = self.get_all_public_topics()
         self.stream_url = self.get_stream_url()
-        self.stream = self.get_stream()
+
+        start_position = StartPosition.LATEST
+        if hasattr(self, 'start_position') and self.start_position == 'EARLIEST':
+            start_position = StartPosition.EARLIEST
+        self.stream = self.get_stream(start_position)
 
     def get_all_public_topics(self) -> list[str]:
         """Returns the up-to-date list of Topic names to consume.
