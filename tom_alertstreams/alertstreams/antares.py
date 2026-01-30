@@ -27,4 +27,4 @@ class AntaresAlertStream(AlertStream):
         for topic, locus in self.stream.iter():
             base_topic = topic.removeprefix(self.stream._TOPIC_PREFIX)
             logger.info(f"received {locus.locus_id} on {base_topic}")
-            self.alert_handler[base_topic](None, locus)
+            self.alert_handler[base_topic](locus)
