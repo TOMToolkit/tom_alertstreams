@@ -40,7 +40,8 @@ packages = [
 dependencies = [
     "psycopg2-binary >=2.9,<3.0",
     "gcn-kafka >=0.3,<1.0",
-    "hop-client >=0.10,<1.0"
+    "hop-client >=0.10,<1.0",
+    "antares-client",
 ]
 
 [tool.setuptools_scm]

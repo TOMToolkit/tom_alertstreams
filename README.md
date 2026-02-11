@@ -38,9 +38,10 @@ in the output.
 
 Each Kafka stream that your TOM listens to (via `readstreams`) will have a configuration dictionary
 in your `settings.py` `ALERT_STREAMS`. `ALERT_STREAMS` is a list of configuration dictionaries, one
-dictionary for each Kafka stream. Here's an example `ALERT_STREAMS` configuration for two Kafka streams:
-[SCiMMA Hopskotch](https://scimma.org/hopskotch.html) and
-[GCN Classic over Kafka](https://gcn.nasa.gov/quickstart).
+dictionary for each Kafka stream. Here's an example `ALERT_STREAMS` configuration for three Kafka streams:
+[SCiMMA Hopskotch](https://scimma.org/hopskotch.html),
+[GCN Classic over Kafka](https://gcn.nasa.gov/quickstart), and
+[ANTARES](https://nsf-noirlab.gitlab.io/csdc/antares/client/).
 
 ```python
 ALERT_STREAMS = [
@@ -82,6 +83,18 @@ ALERT_STREAMS = [
                 'gcn.classic.text.LVC_PRELIMINARY': 'tom_alertstreams.alertstreams.alertstream.alert_logger',
                 'gcn.classic.text.LVC_RETRACTION': 'tom_alertstreams.alertstreams.alertstream.alert_logger',
             },
+        },
+    },
+    {
+        'ACTIVE': True,
+        'NAME': 'tom_alertstreams.alertstreams.antares.AntaresAlertStream',
+        'OPTIONS': {
+            'API_KEY': os.getenv('ANTARES_API_KEY'),
+            'API_SECRET': os.getenv('ANTARES_API_SECRET'),
+            'GROUP': os.getenv('ANTARES_GROUP_ID'),
+            'TOPIC_HANDLERS': {
+                'extragalactic_staging': 'tom_antares.alertstream_handlers.handle_alert',
+            }
         },
     }
 ]

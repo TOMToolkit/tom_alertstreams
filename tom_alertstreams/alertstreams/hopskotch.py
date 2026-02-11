@@ -52,7 +52,7 @@ class HopskotchAlertStream(AlertStream):
         # include only topics that a) contain a '.'; b) don't start with '__' (excludes __consumer_offsets)
         publicly_readable_topics = [topic for topic in list_topics(self.url, hop_auth).keys()
                                     if not (topic.startswith('__') and (topic.count('.')==0))]
-        logger.info(f'publicly_readable_topics: {publicly_readable_topics}')
+        logger.debug(f'publicly_readable_topics: {publicly_readable_topics}')
 
         return publicly_readable_topics
 
