@@ -34,25 +34,34 @@ classifiers = [
 ]
 dynamic = ["version"]
 requires-python = ">=3.9.0,<=3.13"
-packages = [
-    { include = "tom_alertstreams" }
-]
 dependencies = [
-    "psycopg2-binary >=2.9,<3.0",
+    "django <6",
+    "django-extensions >=3.2.3,<4"
+]
+
+[project.optional-dependencies]
+gcn = ["gcn-kafka >=0.3,<1.0"]
+hopskotch = ["hop-client >=0.10,<1.0"]
+antares = ["antares-client"]
+fink = ["fink-client >=8.8,<9"]
+
+all-streams = [
     "gcn-kafka >=0.3,<1.0",
     "hop-client >=0.10,<1.0",
     "antares-client",
+    "fink-client >=8.8,<9",
+]
+
+test = [
+    "coverage >=7.6.1,<8",
+    "factory_boy >=3.1.0,<4",
+    "pytest >=8.3.2,<9",
 ]
 
 [tool.setuptools_scm]
 
 [tool.poetry]
 version = "0.0.0" # version supplied by poetry-dynamic-versioning
-
-[tool.poetry.group.test.dependencies]
-coverage = "^7.6.1"
-factory_boy = "^3.1.0"
-pytest = "^8.3.2"
 
 [tool.poetry.requires-plugins]
 poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }

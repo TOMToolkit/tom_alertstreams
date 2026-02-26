@@ -11,9 +11,19 @@ what topics to listen to, and what to do with messages that arrive on a given to
 
 ## Installation
 
-1. Install the package into your TOM environment:
+1. Install the package into your TOM environment, specifying which alert streams you want to use:
     ```bash
-    pip install tom-alertstreams
+    # Install support for specific streams (recommended)
+    pip install tom-alertstreams[gcn]           # For GCN Classic over Kafka
+    pip install tom-alertstreams[hopskotch]     # For SCiMMA Hopskotch
+    pip install tom-alertstreams[antares]       # For ANTARES
+    pip install tom-alertstreams[fink]          # For Fink
+    
+    # Install multiple streams
+    pip install tom-alertstreams[gcn,hopskotch,antares]
+    
+    # Or install all supported streams
+    pip install tom-alertstreams[all-streams]
    ```
 
 2. In your project `settings.py`, add `tom_alertstreams` to your `INSTALLED_APPS` setting:
@@ -165,3 +175,44 @@ want your TOM to listen to. If so, you need only to configure your TOM to use it
    an example. (Again, see `alertstreams.gcn.listen()` and `alertstreams.hopskotch.listen()`, their
    configurations in `settings.py`, and the `alertstreams.gcn.alert_logger()` and
    `alertstreams.hopskotch.alert_logger() methods, for example).
+
+
+## Local Development
+
+### Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/TOMToolkit/tom_alertstreams.git
+   cd tom_alertstreams
+   ```
+
+2. Create and activate your virtual environment:
+   ```bash
+   /path/to/your/python -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. Install dependencies (choose one):
+   ```bash
+   # Using pip - install all streams for development
+   pip install -e .[all-streams]
+   # Or install specific streams only
+   pip install -e .[gcn,hopskotch]
+   
+   # Using poetry - install all streams
+   poetry install --all-extras
+   # Or install specific streams only
+   poetry install --extras gcn --extras hopskotch
+   
+   # Using uv - install all streams
+   uv pip install -e .[all-streams]
+   # Or install specific streams only
+   uv pip install -e .[gcn,hopskotch]
+   ```
+
+4. Run the tests:
+   ```bash
+   python tom_alertstreams/tests/run_tests.py
+   ```
+
