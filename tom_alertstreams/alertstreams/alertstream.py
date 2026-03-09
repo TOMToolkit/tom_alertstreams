@@ -99,10 +99,11 @@ class AlertStream(abc.ABC):
     2. Set class variables:
          configuration_class = MyStreamConfig
          STREAM_NAME = 'mystream'           # short canonical name, written to Alert.stream_name
-         ARCHIVE_URL_TEMPLATE = 'https://...'  # used to create links to alerts
 
     3. Override normalize_alert(raw_alert, topic='') -> NormalizedAlert to extract
-       stream-specific fields (ra, dec, magnitude, object_id, etc.).
+       stream-specific fields (ra, dec, magnitude, object_id, etc.). This returns
+       a basic (Pydantic BaseModel subclass) NormaizedAlert that can be consistently
+       used reguardless of which stream the alert came from.
 
     4. Implement listen() -> None. This method is not expected to return. It should:
          a. Connect to the Kafka stream using credentials from self.config
@@ -125,11 +126,9 @@ class AlertStream(abc.ABC):
     configuration_class: ClassVar[type[AlertStreamConfig]]
 
     # Short canonical name written to Alert.stream_name. Must be unique across
-    # all configured streams. Used by the Recent Alerts view to build archive URL maps.
+    # all configured streams. Used by the presenter registry in tables.py to
+    # look up the appropriate AlertStreamPresenter for URL construction.
     STREAM_NAME: ClassVar[str]
-
-    # this should be a URL that can be used to create a link to an alert at a broker
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = None
 
     def __init__(self, **kwargs: Any) -> None:
         # read and validate the alertstream configuration
@@ -147,6 +146,8 @@ class AlertStream(abc.ABC):
 
     def _process_topic_handlers(self) -> dict[str, Callable]:
         """Import and return handler callables from the TOPIC_HANDLERS configuration.
+
+        This is a step in the AlertStream instanciation:
 
         In settings.py, the configuration dictionary TOPIC_HANDLER dictionary
         for each stream maps a topic to a dotted-path string specifying the alert
@@ -237,8 +238,37 @@ class AlertStream(abc.ABC):
 # Module-level helper functions
 # ---------------------------------------------------------------------------
 
+def get_alert_stream_classes() -> list[type[AlertStream]]:
+    """Return the imported class for each configured alert stream.
+
+    Imports each active stream class from settings.ALERT_STREAMS by its dotted
+    NAME path. Does NOT instantiate the classes — this is the lightweight
+    alternative to get_alert_streams() for when you only need access to class
+    attributes (e.g. STREAM_NAME).
+
+    Streams that are inactive (ACTIVE=False) are skipped. Streams that fail to
+    import are logged and skipped so a single misconfigured entry doesn't break
+    the caller.
+    """
+    classes: list[type[AlertStream]] = []
+    for stream_config in getattr(settings, 'ALERT_STREAMS', []):
+        if not stream_config.get('ACTIVE', True):
+            continue
+        try:
+            classes.append(import_string(stream_config['NAME']))
+        except (ImportError, AttributeError, KeyError) as exc:
+            logger.warning(
+                'get_alert_stream_classes: could not import %s: %s',
+                stream_config.get('NAME'), exc,
+            )
+    return classes
+
+
 def get_default_alert_streams() -> list[AlertStream]:
     """Return the AlertStream instances configured in settings.ALERT_STREAMS.
+
+    `get_alert_streams()` is the general function. Here, we call that function
+    and pass in the configuration dictionary from settings.ALERT_STREAMS.
 
     Raises:
         ImproperlyConfigured: if ALERT_STREAMS is not defined in settings, or if
@@ -255,7 +285,7 @@ def get_default_alert_streams() -> list[AlertStream]:
 def get_alert_streams(alert_stream_configs: list) -> list[AlertStream]:
     """Instantiate and return AlertStream objects from a list of config dicts.
 
-    Use this fuction if your alert streams are configured somewhere other
+    Use this function if your alert streams are configured somewhere other
     than settings.ALERT_STREAMS.
 
     Each config dict must have:
