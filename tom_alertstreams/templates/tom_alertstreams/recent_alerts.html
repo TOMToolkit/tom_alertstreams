@@ -11,6 +11,11 @@
             The {{ record_count }} most recent alert{{ record_count|pluralize }} received from configured alert streams.
             Alert IDs link to the stream's public archive where available.
         </p>
+
+        {# Stream status dashboard -- auto-refreshes via OOB swap in the table partial #}
+        <div id="stream-dashboard">
+            {% include "tom_alertstreams/partials/stream_dashboard.html" %}
+        </div>
         <hr>
 
         {# Filter form -- id="filter-form" must match hx-include in AlertTable.Meta.attrs #}
@@ -33,7 +38,7 @@
              hx-trigger="every 5s"
              hx-swap="innerHTML"
              hx-include="#filter-form">
-            {% include table.get_partial_template_name %}
+            {% include table.get_partial_template_name %} {# render the table via it's partial #}
         </div>
     </div>
 </div>
