@@ -32,7 +32,6 @@ class AlerceAlertStream(AlertStream):
     """
     configuration_class = AlerceConfig  # type: ignore[assignment]
     STREAM_NAME: ClassVar[str] = 'alerce'
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = 'https://alerce.online/object/{object_id}'
 
     def normalize_alert(self, raw_alert: dict, topic: str = '') -> NormalizedAlert:
         """Map a mock ALeRCE alert dict to a NormalizedAlert.

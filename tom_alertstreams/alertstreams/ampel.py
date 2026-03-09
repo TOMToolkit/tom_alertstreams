@@ -32,7 +32,6 @@ class AmpelAlertStream(AlertStream):
     """
     configuration_class = AmpelConfig  # type: ignore[assignment]
     STREAM_NAME: ClassVar[str] = 'ampel'
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = None
 
     def normalize_alert(self, raw_alert: dict, topic: str = '') -> NormalizedAlert:
         """Map a mock AMPEL alert dict to a NormalizedAlert.

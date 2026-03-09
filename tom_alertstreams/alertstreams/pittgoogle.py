@@ -34,7 +34,6 @@ class PittGoogleAlertStream(AlertStream):
     """
     configuration_class = PittGoogleConfig  # type: ignore[assignment]
     STREAM_NAME: ClassVar[str] = 'pittgoogle'
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = None
 
     def normalize_alert(self, raw_alert: dict, topic: str = '') -> NormalizedAlert:
         """Map a mock Pitt-Google alert dict to a NormalizedAlert.

@@ -34,7 +34,6 @@ class LasairAlertStream(AlertStream):
     """
     configuration_class = LasairConfig  # type: ignore[assignment]
     STREAM_NAME: ClassVar[str] = 'lasair'
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = 'https://lasair-ztf.lsst.ac.uk/objects/{object_id}/'
 
     def normalize_alert(self, raw_alert: dict, topic: str = '') -> NormalizedAlert:
         """Map a mock Lasair alert dict to a NormalizedAlert.

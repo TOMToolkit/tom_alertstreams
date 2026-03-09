@@ -32,7 +32,6 @@ class FinkAlertStream(AlertStream):
     """
     configuration_class = FinkConfig  # type: ignore[assignment]
     STREAM_NAME: ClassVar[str] = 'fink'
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = 'https://fink-portal.org/{object_id}'
 
     def normalize_alert(self, raw_alert: dict, topic: str = '') -> NormalizedAlert:
         """Map a mock Fink alert dict to a NormalizedAlert.
