@@ -1,37 +1,59 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
-from django.conf import settings
-from django.utils.module_loading import import_string
+from django.db.models import Max
+from django.utils import timezone
 from django_filters.views import FilterView
 
+from tom_alertstreams.alertstreams.alertstream import get_alert_stream_classes
 from tom_alertstreams.models import Alert
-from tom_alertstreams.tables import AlertFilterSet, AlertTable
+from tom_alertstreams.tables import (
+    AlertFilterSet, AlertStreamPresenter, AlertTable, STREAM_PRESENTERS,
+)
 from tom_common.htmx_table import HTMXTableViewMixin
 
-logger = logging.getLogger(__name__)
 
+def _build_presenter_map() -> dict[str, AlertStreamPresenter]:
+    """Build a presenter instance for each configured active alert stream.
 
-def _build_archive_url_map() -> dict[str, str | None]:
-    """Build {stream_name → archive_url_template} from ALERT_STREAMS settings.
-
-    Reads ALERT_STREAMS and imports each active stream class by dotted path to
-    access its STREAM_NAME and ARCHIVE_URL_TEMPLATE class variables. Does NOT
-    instantiate the streams — no network connections are made. Returns an empty
-    dict if ALERT_STREAMS is not configured.
+    Looks up each stream's STREAM_NAME in the STREAM_PRESENTERS registry.
+    Streams not in the registry get the default AlertStreamPresenter (no URLs).
     """
-    url_map: dict[str, str | None] = {}
-    for stream_config in getattr(settings, 'ALERT_STREAMS', []):
-        if not stream_config.get('ACTIVE', True):
-            continue
-        try:
-            klass = import_string(stream_config['NAME'])
-            url_map[klass.STREAM_NAME] = klass.ARCHIVE_URL_TEMPLATE
-        except (ImportError, AttributeError, KeyError) as exc:
-            logger.warning(f'_build_archive_url_map: could not read stream class {stream_config.get("NAME")}: {exc}')
-    return url_map
+    return {
+        klass.STREAM_NAME: STREAM_PRESENTERS.get(klass.STREAM_NAME, AlertStreamPresenter)()
+        for klass in get_alert_stream_classes()
+    }
+
+
+def _build_stream_status() -> list[dict[str, Any]]:
+    """Build per-stream "last seen" status for the dashboard.
+
+    Returns a list of dicts with keys: stream_name, latest_timestamp, now.
+    Includes all configured active streams — streams with no alerts in the
+    database appear with latest_timestamp=None.
+
+    One aggregate DB query (covered by the (stream_name, timestamp) index).
+    """
+    # Latest alert timestamp per stream, in one query
+    latest_by_stream: dict[str, Any] = {
+        row['stream_name']: row['latest']
+        for row in Alert.objects.values('stream_name').annotate(latest=Max('timestamp'))
+    }
+
+    # Ordered list of configured stream names
+    configured_streams = [klass.STREAM_NAME for klass in get_alert_stream_classes()]
+
+    # Single now value so timesince is consistent across all badges
+    now = timezone.now()
+    return [
+        {
+            'stream_name': name,
+            'latest_timestamp': latest_by_stream.get(name),
+            'now': now,
+        }
+        for name in configured_streams
+    ]
 
 
 class RecentAlertsView(HTMXTableViewMixin, FilterView):
@@ -40,9 +62,9 @@ class RecentAlertsView(HTMXTableViewMixin, FilterView):
     No login is required — the Recent Alerts page is intentionally public so that
     demo visitors and potential TOM developers can browse it without an account.
 
-    Archive URL links (e.g. to ANTARES, ALeRCE) are built on the fly from each
-    stream's ARCHIVE_URL_TEMPLATE class variable, so no URL needs to be stored
-    in the database.
+    Alert and object links (e.g. to ANTARES loci, ALeRCE objects) are built on the
+    fly by AlertStreamPresenter subclasses (registered in tables.STREAM_PRESENTERS),
+    so no URLs need to be stored in the database.
     """
     template_name = 'tom_alertstreams/recent_alerts.html'
     model = Alert
@@ -50,23 +72,32 @@ class RecentAlertsView(HTMXTableViewMixin, FilterView):
     filterset_class = AlertFilterSet
     paginate_by = 20
 
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        """Add stream status data for the dashboard.
+
+        Runs on every request (both full page and HTMX partial) so the OOB
+        swap in the custom partial template can refresh the dashboard badges.
+        """
+        context = super().get_context_data(**kwargs)
+        context['stream_status'] = _build_stream_status()
+        return context
+
     def get_table_kwargs(self) -> dict[str, Any]:
-        """Inject the archive url_map into the AlertTable constructor.
+        """Inject the presenter map into the AlertTable constructor.
 
-        The "archive url map" is used to create links that appear in the
-        Recent Alerts table. The link is to the alert at the alert brokers site.
-
-        The map is built above using the class property set on the AlertStream
-        subclasses.
+        Each configured AlertStream is paired with an AlertStreamPresenter
+        (looked up by STREAM_NAME in the STREAM_PRESENTERS registry). The
+        presenter handles URL construction — the table just calls
+        presenter.alert_url() / presenter.object_url() and renders the result.
 
         This method is implemented in django-tables2.SingleTableMixin,
         which HTMXTableViewMixin inherits from. It's called like this:
 
         get_context_data()          # SingleTableMixin (django-tables2)
           └── get_table(**self.get_table_kwargs())
-                ├── get_table_kwargs()    # returns {} by default; we override to add url_map
-                └── get_table(url_map=…)  # instantiates AlertTable(data=…, url_map=…)
+                ├── get_table_kwargs()    # returns {} by default; we override
+                └── get_table(presenter_map=…)
         """
         kwargs = super().get_table_kwargs()
-        kwargs['url_map'] = _build_archive_url_map()
+        kwargs['presenter_map'] = _build_presenter_map()
         return kwargs
