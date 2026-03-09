@@ -1,91 +1,104 @@
 from __future__ import annotations
 
 import logging
-import random
-import time
-from datetime import datetime, timezone
-from typing import Any, ClassVar
+from typing import ClassVar, Literal
+
+from babamul import AlertConsumer, LsstAlert, ZtfAlert
+from pydantic import Field
 
 from tom_alertstreams.alertstreams.alertstream import AlertStream, AlertStreamConfig, NormalizedAlert
 
 logger = logging.getLogger(__name__)
 
-# TODO: remove when stubs are replaced
-# Mock data constants — chosen to be unmistakably non-astronomical:
-# (0, 0) is not a real survey pointing; 99.0 is the astronomical sentinel for "no data".
-_MOCK_RA = 0.0
-_MOCK_DEC = 0.0
-_MOCK_MAGNITUDE = 99.0
-
 
 class BabamulConfig(AlertStreamConfig):
-    """Pydantic configuration model for BabamulAlertStream (stub).
+    """Pydantic configuration model for BabamulAlertStream.
 
     Inherits TOPIC_HANDLERS from AlertStreamConfig (a Pydantic BaseModel).
+
+    Fields:
+        BABAMUL_KAFKA_USERNAME: Kafka username for the Babamul broker (required).
+        BABAMUL_KAFKA_PASSWORD: Kafka password for the Babamul broker (required).
+        BABAMUL_GROUP_ID: Kafka consumer group ID. Alerts are partitioned across
+            consumers sharing the same group_id, so each TOM instance should use
+            a unique group_id to receive all alerts.
+        BABAMUL_AUTO_COMMIT: Whether to auto-commit Kafka offsets after consuming.
+            False (default) means offsets are not committed, so restarting the
+            consumer replays from the configured BABAMUL_OFFSET position.
+        BABAMUL_OFFSET: Where to start reading when no committed offset exists.
+            'EARLIEST' replays all available alerts; 'LATEST' starts from new ones.
     """
-    # TODO: replace this stub with actual implementation
-    pass
+    BABAMUL_KAFKA_USERNAME: str = Field(min_length=1)  # don't accept an empty string
+    BABAMUL_KAFKA_PASSWORD: str = Field(min_length=1)
+    BABAMUL_GROUP_ID: str = Field(min_length=1)
+    BABAMUL_AUTO_COMMIT: bool = False
+    BABAMUL_OFFSET: Literal['earliest', 'latest'] = 'latest'
 
 
 class BabamulAlertStream(AlertStream):
-    """Stub Babamul AlertStream that generates obviously-fake mock alerts.
+    """AlertStream implementation for Babamul (https://github.com/boom-astro/babamul).
     """
     configuration_class = BabamulConfig  # type: ignore[assignment]
     STREAM_NAME: ClassVar[str] = 'babamul'
-    ARCHIVE_URL_TEMPLATE: ClassVar[str | None] = None
 
-    def normalize_alert(self, raw_alert: dict, topic: str = '') -> NormalizedAlert:
-        """Map a mock Babamul alert dict to a NormalizedAlert.
+    def normalize_alert(self, raw_alert: ZtfAlert | LsstAlert, topic: str = '') -> NormalizedAlert:
+        """Convert a babamul alert to a NormalizedAlert.
+
+        ZtfAlert and LsstAlert are Pydantic BaseModel subclasses provided by the
+        ``babamul`` package. Because they are Pydantic models we can:
+        - access fields via typed attributes (raw_alert.objectId, candidate.ra, etc.)
+        - serialize to JSON-safe dicts with model_dump(mode='json'), which handles
+          datetimes, enums (e.g. Band), and nested models automatically
+        - skip defensive getattr() / try-except — field access is guaranteed by the schema
 
         Args:
-            raw_alert: Dict produced by listen(); contains mock field values.
-            topic: Kafka topic the alert was consumed from.
+            raw_alert: A babamul ZtfAlert or LsstAlert from AlertConsumer.
+            topic: The Kafka topic the alert arrived on. Falls back to
+                raw_alert.topic if not provided.
 
         Returns:
-            NormalizedAlert populated from the mock dict fields.
+            NormalizedAlert with fields extracted from the babamul alert's candidate.
         """
-        # TODO: replace this stub with actual implementation
-        # super().normalized_alert is @abs.abstractmethod, so the stub needs an implementation
-        normalized_alert = NormalizedAlert(
+        candidate = raw_alert.candidate
+
+        return NormalizedAlert(
             stream_name=self.STREAM_NAME,
-            topic=topic or raw_alert.get('topic', ''),
-            timestamp=datetime.fromisoformat(raw_alert['timestamp']),
-            alert_id=raw_alert['alert_id'],
-            object_id=raw_alert.get('object_id'),
-            ra=raw_alert.get('ra'),
-            dec=raw_alert.get('dec'),
-            magnitude=raw_alert.get('magnitude'),
-            raw_payload=raw_alert,
+            topic=topic or raw_alert.topic or '',
+            timestamp=candidate.datetime,
+            alert_id=str(raw_alert.candid),
+            object_id=raw_alert.objectId,
+            ra=candidate.ra,
+            dec=candidate.dec,
+            magnitude=candidate.magpsf,
+            raw_payload=raw_alert.model_dump(mode='json'),
         )
-        return normalized_alert
 
     def listen(self) -> None:
-        """Generate mock Babamul alerts and dispatch to configured topic handlers.
+        """Consume Babamul alerts and dispatch to configured topic handlers.
 
-        Loops indefinitely, emitting one mock alert per iteration with a random
-        5–30 second delay. Topics are round-robined if multiple are configured.
+        Opens a babamul AlertConsumer as a context manager and iterates over
+        incoming alerts indefinitely. Each alert is dispatched to the handler
+        configured for its topic.
         """
-        # TODO: replace this stub with actual implementation
-        counter = 0
         topics = list(self.config.TOPIC_HANDLERS.keys())
 
-        # for this stub, generate mock alerts (rather than listen to the stream) endlessly
-        while True:
-            counter += 1
-            topic = topics[counter % len(topics)]
-            timestamp = datetime.now(timezone.utc)
-            object_id = f'MOCK-{self.STREAM_NAME.upper()}-{counter:04d}'
-            alert_id = f'MOCK-{timestamp.strftime("%Y%m%d%H%M%S")}'
-            mock_alert: dict[str, Any] = {
-                'alert_id': alert_id,
-                'object_id': object_id,
-                'topic': topic,
-                'timestamp': timestamp.isoformat(),
-                'ra': _MOCK_RA,
-                'dec': _MOCK_DEC,
-                'magnitude': _MOCK_MAGNITUDE,
-                'mock': True,
-            }
-            logger.debug(f'BabamulAlertStream: mock alert {object_id}')
-            self.alert_handler[topic](mock_alert, alert_stream=self, topic=topic)
-            time.sleep(random.uniform(5.0, 30.0))
+        with AlertConsumer(
+            topics=topics,
+            username=self.config.BABAMUL_KAFKA_USERNAME,
+            password=self.config.BABAMUL_KAFKA_PASSWORD,
+            group_id=self.config.BABAMUL_GROUP_ID,
+            offset=self.config.BABAMUL_OFFSET,
+            auto_commit=self.config.BABAMUL_AUTO_COMMIT,
+        ) as consumer:
+            alert: ZtfAlert | LsstAlert
+            for alert in consumer:  # yields ZtfAlert | LsstAlert (Pydantic models)
+                topic = alert.topic or '<topic not found in alert>'
+                if topic not in self.alert_handler:
+                    logger.warning(
+                        f'BabamulAlertStream: alert from topic "{topic}" has no handler. '
+                        f'Configured topics: {list(self.alert_handler.keys())}'
+                    )
+                    continue
+
+                logger.debug(f'BabamulAlertStream: alert {alert.objectId} (candid={alert.candid}) on {topic}')
+                self.alert_handler[topic](alert, alert_stream=self, topic=topic)
