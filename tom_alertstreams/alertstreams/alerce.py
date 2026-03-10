@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 _MOCK_RA = 0.0
 _MOCK_DEC = 0.0
 _MOCK_MAGNITUDE = 99.0
-
+INTER_ALERT_SLEEP_MIN = 360  # six minutes
+INTER_ALERT_SLEEP_MAX = 420  # seven minutes
 
 class AlerceConfig(AlertStreamConfig):
     """Pydantic configuration model for AlerceAlertStream (stub).
@@ -87,4 +88,4 @@ class AlerceAlertStream(AlertStream):
             }
             logger.debug(f'AlerceAlertStream: mock alert {object_id}')
             self.alert_handler[topic](mock_alert, alert_stream=self, topic=topic)
-            time.sleep(random.uniform(5.0, 30.0))
+            time.sleep(random.uniform(INTER_ALERT_SLEEP_MIN, INTER_ALERT_SLEEP_MAX))
