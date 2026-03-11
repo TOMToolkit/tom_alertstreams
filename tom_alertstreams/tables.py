@@ -85,9 +85,16 @@ class AlertTable(HTMXTable):
         """Render magnitude to 3 decimal places (~1 mmag, matching survey photometric precision)."""
         return f'{value:.3f}' if value is not None else ''
 
+    def render_flux(self, value: Any) -> str:
+        """Render flux in nanojansky to 3 decimal places."""
+        return f'{value:.3f}' if value is not None else ''
+
     class Meta(HTMXTable.Meta):
         model = Alert
-        fields = ['selection', 'alert_id', 'stream_name', 'topic', 'timestamp', 'object_id', 'ra', 'dec', 'magnitude']
+        fields = [
+            'selection', 'alert_id', 'stream_name', 'topic', 'timestamp',
+            'object_id', 'ra', 'dec', 'magnitude', 'flux',
+        ]
 
 
 def _get_stream_name_choices() -> list[tuple[str, str]]:

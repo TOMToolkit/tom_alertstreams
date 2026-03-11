@@ -85,6 +85,7 @@ class Alert(FIFOQueueMixin):
     ra = models.FloatField(null=True)
     dec = models.FloatField(null=True)
     magnitude = models.FloatField(null=True)
+    flux = models.FloatField(null=True)
     raw_payload = models.JSONField(default=dict)
 
     class Meta(FIFOQueueMixin.Meta):  # this is the way you subclass the internal Meta class
